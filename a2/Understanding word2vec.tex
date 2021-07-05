@@ -1,0 +1,187 @@
+\documentclass{amsart}
+
+\usepackage{hyperref}
+
+\theoremstyle{plain} 
+\newtheorem{theorem} {Theorem} [section]
+\newtheorem{corollary} [theorem] {Corollary}
+
+\theoremstyle{remark}
+\newtheorem{remark}{Remark} 
+
+\numberwithin{equation}{section}
+
+\newcommand {\R} {\mathbb{R}}
+\newcommand{\N} {\mathbb{N}}
+\newcommand{\Z} {\mathbb{Z}}
+
+\DeclareMathOperator{\rank} {\mathrm{rank}} 
+\DeclareMathOperator{\proj} {\mathrm{proj}}
+
+
+\newcommand{\inner} [2] { \langle #1 , #2 \rangle }
+
+
+\begin{document}
+
+
+\title{Understanding Word2Vec}
+\author{Yechan Lee}
+\date{\today}
+
+\maketitle
+
+\begin{enumerate}
+\item For some given $o, c$
+\[ 
+\begin{split}
+& \mathbf{y} = [0, \cdots, 1  \text{ (c-th position)}, \cdots, 0] \\
+& \mathbf{\hat y} = [P(O=1|C=c), P(O=2|C=c), \cdots ] \\ 
+& J_{\text{naitve-softmax}}(v_c, o, U) = -\log P(O=o|C=c) \\
+& = - \log \hat y_0 = -\sum_{w \in \text{Vocab}} y_w \log \hat y_w 
+\end{split}
+\]
+
+
+\item Let D be the dimension of word vector, W be the number of words in vocabulary. Then, shape of $\mathbf v_c$ is $[D, 1]$, $\mathbf U$ is $[W, D]$, $\mathbf y, \mathbf {\hat y}$ is $[W, 1]$ 
+\[
+\begin{split}
+\frac {\partial J} {\partial \mathbf v_c} & = \frac \partial {\partial \mathbf v_c} -\log P(O=o|C=c) \\
+& = \frac \partial {\partial \mathbf v_c} \left ( - \mathbf u_0^T \mathbf v_c +\log \sum_{w\in \text{Vocab}} \exp {\mathbf u}_w^T \mathbf v_c \right ) \\
+& = - \mathbf u_0 + \frac { \sum_{w \in \text{Vocab}} \exp \left (\mathbf u_w^T \mathbf v_c \right ) \cdot \mathbf u_w } { \sum_{w\in \text{Vocab}} \exp \mathbf u_w^T \mathbf v_c } \\
+& = -\mathbf u_0 +\sum_{w\in\text{Vocab}} P(O=w|C=c) \cdot \mathbf u_w \\
+& = - U^T \mathbf y + U^T \hat {\mathbf y} \\ 
+& = U^T (\mathbf {\hat y} - \mathbf y) 
+\end{split}
+\]
+$U^T \mathbf {\hat y}$ has $[D, 1]$ shape because $U^T$ has $[D, W]$ shape, and $\mathbf {\hat y}$ has $[W, 1]$ shape.
+
+
+\item \,
+\begin{enumerate}
+\item If $w=o$ then, 
+\[
+\begin{split}
+\frac {\partial J} {\partial \mathbf u_o} &= \frac \partial {\partial \mathbf u_o} -\log P(O=o|C=c) \\
+&= \frac \partial {\partial \mathbf u_o} \left ( - \mathbf u_0^T \mathbf v_c +\log \sum_{w\in \text{Vocab}} \exp {\mathbf u}_w^T \mathbf v_c \right ) \\
+&= - \mathbf v_c + \frac { \exp \left ( \mathbf u_o^T \mathbf v_c \right ) \mathbf v_c} { \sum_{w \in \text{Vocab}} \exp \left (\mathbf u_w^T \mathbf v_c \right ) \cdot \mathbf v_c }  \\
+&= (P(O=o|C=c)-1)\mathbf v_c \\
+& = (\hat y_o -1) \mathbf v_c
+\end{split}
+\]
+
+\item If $w\ne o$ then,
+\[
+\begin{split}
+\frac {\partial J} {\partial \mathbf u_w} &= \frac \partial {\partial \mathbf u_w} -\log P(O=o|C=c) \\
+&= \frac \partial {\partial \mathbf u_w} \left ( - \mathbf u_0^T \mathbf v_c +\log \sum_{w'\in \text{Vocab}} \exp {\mathbf u}_{w'}^T \mathbf v_c \right ) \\
+&= \frac { \exp \left ( \mathbf u_w^T \mathbf v_c \right ) \mathbf v_c} { \sum_{w' \in \text{Vocab}} \exp \left (\mathbf u_{w'}^T \mathbf v_c \right ) \cdot \mathbf v_c }  \\
+&= P(O=w|C=c)\mathbf v_c \\
+& = \hat y_w \mathbf v_c
+\end{split}
+\]
+\end{enumerate}
+
+
+\item Noted: We haved defined the length of Vocabulary as $W$.
+\[
+\frac {\partial J} {\partial \mathbf U} = 
+\begin{bmatrix} 
+\frac {\partial J} {\partial \mathbf u_1} \\
+\vdots \\
+\frac {\partial J} {\partial \mathbf u_o} \\
+\vdots \\
+\frac {\partial J} {\partial \mathbf u_W} \\
+\end{bmatrix} =
+\begin{bmatrix} 
+\hat y_1 \mathbf v_c^T  \\
+\vdots  \\
+(\hat y_0 -1) \mathbf v_c^T \\
+\vdots \\
+\hat y_W \mathbf v_c^T 
+\end{bmatrix} =
+\begin{bmatrix}
+\hat y_1 \\
+\vdots \\
+\hat y_o -1 \\
+\vdots \\
+\hat y_W 
+\end{bmatrix} \mathbf v_c^T
+\]
+
+\item Differentiate the sigmoid function. 
+\[
+\frac {d\sigma (x)} {dx} = \frac d {dx} \frac 1 {1 + e^{-x}} = \frac {e^{-x}} {(1+e^{-x})^2} = \frac 1 {1+e^{-x}} \frac {e^{-x}} {1+e^{-x}} = \sigma(x)(1-\sigma(x))
+\]
+
+
+\item \,
+\begin{enumerate}
+\item Repeat (2). Differentiate $J$ with respect to $\mathbf v_c$ 
+\[
+\begin{split}
+\frac {\partial} {\partial \mathbf v_c} J  & = -\frac {\partial} {\partial \mathbf v_c} \log (\sigma (\mathbf u_o^T \mathbf v_c)) - \sum_{k=1}^K \frac {\partial} {\partial \mathbf v_c} \log (\sigma(-\mathbf u_k^T \mathbf v_c)) \\
+& = -(1-\sigma(\mathbf u_o^T \mathbf v_c)) \mathbf u_o - \sum_{k=1}^K (1-\sigma(-\mathbf u_k^T \mathbf v_c)) (-\mathbf u_k) \\
+& = (\sigma(\mathbf u_o^T \mathbf v_c) -1)\mathbf u_o + \sum_{k=1}^K (1-\sigma(-\mathbf u_k^T \mathbf v_c)) \mathbf u_k
+\end{split}
+\]
+
+\item Repeat (3). Differentiate $J$ with respect to $\mathbf u_o$ 
+\[
+\begin{split}
+\frac \partial {\partial \mathbf u_0} J & = - \frac \partial {\partial \mathbf u_0} \log (\sigma (\mathbf u_o^T \mathbf v_c)) \\
+&= - \frac 1 {\sigma(\mathbf u_o^T \mathbf v_c)} \frac \partial {\partial \mathbf u_0} \sigma (\mathbf u_o^T \mathbf v_c) \\
+& = - \frac 1 {\sigma(\mathbf u_o^T \mathbf v_c)} \sigma(\mathbf u_o^T \mathbf v_c)(1- \sigma(\mathbf u_o^T \mathbf v_c)) \frac \partial {\partial \mathbf u_0} \mathbf u_o^T \mathbf v_c \\
+& = (\sigma(\mathbf u_o^T \mathbf v_c)-1) \mathbf v_c
+\end{split}
+\]
+\item Repeat (3). Differentiate $J$ with respect to $\mathbf u_k$ 
+\[
+\begin{split} 
+\frac \partial {\partial \mathbf u_k} J &= -\frac \partial {\partial \mathbf u_k} \log(\sigma (-\mathbf u_k^T \mathbf v_c)) \\
+& = (1-\sigma(-\mathbf u_k^T \mathbf v_c)) \mathbf v_c
+\end{split}
+\]
+\end{enumerate}
+
+The reason is that it takes $O(W^2)$ times to calculate $\mathbf {\hat y}, \mathbf y$. Therefore, it takes quadratic time to compute the native-softmax loss. On the other hand, it takes $O(k)$ times to compute the Negative Sampling loss. 
+
+\item Repeat the previous exercise without the distinct sampling assumption. As you can see, calculating the derivative with respect to $\mathbf v_c, \mathbf u_o$ does not use the assumption. Therefore, these derivatives are the same as the previous ones. 
+\[ 
+\frac \partial {\partial \mathbf u_k} J = -\sum_{w_k = w_{k'}} \log(\sigma(-\mathbf u_k^T \mathbf v_c)) = (1-\sigma(-\mathbf u_k^T \mathbf v_c)) \mathbf v_c \times\sum_{k'=1}^K [w_k = w_{k'} ]
+\]
+, where $[ \text{true} ] = 1, [ \text{false} ] = 0$.
+
+
+\item \,
+
+\[
+\begin{split}
+\frac {\partial J_\text{skip-gram} (\mathbf v_c, w_{t-m}, \dots, w_{t+m}, \mathbf U) } {\partial \mathbf U} &= \sum_{-m \le j \le m, j\ne 0} \frac {\partial J(\mathbf v_c, w_{t+j}, \mathbf U)} {\partial \mathbf U} \\
+\frac {\partial J_\text{skip-gram} (\mathbf v_c, w_{t-m}, \dots, w_{t+m}, \mathbf U) } {\partial \mathbf v_c} &= \sum_{-m \le j \le m, j\ne 0} \frac {\partial J(\mathbf v_c, w_{t+j}, \mathbf U)} {\partial \mathbf v_c} \\
+\frac {\partial J_\text{skip-gram} (\mathbf v_c, w_{t-m}, \dots, w_{t+m}, \mathbf U) } {\partial \mathbf v_w} &= 0
+\end{split}
+\]
+
+\end{enumerate}
+\end{document}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
